@@ -1,37 +1,45 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
   <title>Solana Payment Gateway</title>
-  <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.js"></script>
+
+  <!-- Polyfill for Buffer -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/buffer/6.0.3/buffer.min.js"></script>
+
+  <!-- Solana Web3.js -->
+  <script src="https://unpkg.com/@solana/web3.js@1.73.2/lib/index.iife.min.js"></script>
+
+  <style>
+    body { font-family: sans-serif; padding: 20px; }
+    button { padding: 10px 20px; font-size: 16px; }
+  </style>
 </head>
 <body>
   <h1>Solana Payment Gateway</h1>
 
-  <!-- Connect Phantom Wallet -->
   <button id="connectButton">Connect Wallet</button>
   <p id="walletAddress"></p>
 
-  <!-- Payment Button -->
   <button id="payButton" disabled>Pay 0.01 SOL</button>
 
   <script>
-    // Solana Connection Setup
-    const recipientAddress = "5RDjHNH9FGEN7gSGAw6oVS7QhDsvBEV2C3Y9NhrYBQaQ"; // Recipient's address
+    // ✅ Fix Buffer for browser
+    window.Buffer = buffer.Buffer;
+
+    const recipientAddress = "5RDjHNH9FGEN7gSGAw6oVS7QhDsvBEV2C3Y9NhrYBQaQ";
     const connection = new solanaWeb3.Connection(solanaWeb3.clusterApiUrl("mainnet-beta"));
     let wallet = null;
 
-    // Connect Phantom Wallet
     async function connectWallet() {
       if (window?.phantom?.solana?.isPhantom) {
         wallet = window.phantom.solana;
         try {
           const resp = await wallet.connect();
-          document.getElementById("walletAddress").innerText = `Connected: ${resp.publicKey.toString()}`;
-          document.getElementById("payButton").disabled = false; // Enable the pay button after connection
+          document.getElementById("walletAddress").innerText = `✅ Wallet connected: ${resp.publicKey.toString()}`;
+          document.getElementById("payButton").disabled = false;
         } catch (err) {
-          console.error("User rejected the connection:", err);
+          console.error("❌ Connection rejected:", err);
           alert("Connection rejected. Please try again.");
         }
       } else {
@@ -39,7 +47,6 @@
       }
     }
 
-    // Send SOL (0.01 SOL) to the recipient address
     async function sendSol() {
       if (!wallet || !wallet.publicKey) return;
 
@@ -50,7 +57,7 @@
         solanaWeb3.SystemProgram.transfer({
           fromPubkey: senderPubkey,
           toPubkey: recipientPubkey,
-          lamports: solanaWeb3.LAMPORTS_PER_SOL * 0.01, // 0.01 SOL
+          lamports: solanaWeb3.LAMPORTS_PER_SOL * 0.01,
         })
       );
 
@@ -59,18 +66,17 @@
         transaction.recentBlockhash = blockhash;
         transaction.feePayer = senderPubkey;
 
-        // Sign and send the transaction
-        const signature = await wallet.signAndSendTransaction(transaction);
+        const signed = await wallet.signTransaction(transaction);
+        const signature = await connection.sendRawTransaction(signed.serialize());
         await connection.confirmTransaction(signature);
 
-        alert(`Transaction successful! Signature: ${signature}`);
+        alert(`✅ Transaction successful!\n\nSignature:\n${signature}`);
       } catch (err) {
-        console.error("Transaction failed:", err);
+        console.error("❌ Transaction failed:", err);
         alert("Transaction failed. See console for details.");
       }
     }
 
-    // Set up button event listeners
     window.addEventListener("DOMContentLoaded", () => {
       document.getElementById("connectButton").addEventListener("click", connectWallet);
       document.getElementById("payButton").addEventListener("click", sendSol);
